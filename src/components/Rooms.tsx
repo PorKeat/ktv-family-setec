@@ -32,65 +32,162 @@ import {
 } from "./ui/select";
 import { Plus, Clock } from "lucide-react";
 
-export default function Rooms() {
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [editRoom, setEditRoom] = useState<any | null>(null);
-  const [deleteRoom, setDeleteRoom] = useState<any | null>(null);
+interface Room {
+  _id?: string;
+  roomId: string;
+  name: string;
+  type: string;
+  pricePerHour: number;
+  description: string;
+  available: boolean;
+  capacity: number;
+}
 
-  // Fetch rooms data
+export default function Rooms() {
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [editRoom, setEditRoom] = useState<Room | null>(null);
+  const [deleteRoom, setDeleteRoom] = useState<Room | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newRoom, setNewRoom] = useState<Omit<Room, "roomId" | "available">>({
+    name: "",
+    type: "",
+    pricePerHour: 0,
+    description: "",
+    capacity: 0,
+  });
+
+  // Fetch rooms
   useEffect(() => {
     async function fetchRooms() {
       try {
-        const res = await fetch("http://localhost:3000/api/all-data"); // Replace with your API endpoint
+        const res = await fetch("/api/rooms");
         const data = await res.json();
-        console.log("Raw room data received:", data);
-
-        setRooms(data.data.rooms || []);
-      } catch (error) {
-        console.error("Failed to fetch rooms:", error);
+        setRooms(data.data || []);
+      } catch (err) {
+        console.error("Failed to fetch rooms:", err);
       }
     }
     fetchRooms();
   }, []);
 
-  const handleSaveRoom = (room: any) => {
-    console.log("Saving room:", room);
-    // Implement API call to save edited room
-    setEditRoom(null);
+  // Add Room
+  const handleAddRoom = async () => {
+    try {
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newRoom),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRooms((prev) => [...prev, data.data]);
+        setNewRoom({
+          name: "",
+          type: "",
+          pricePerHour: 0,
+          description: "",
+          capacity: 0,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDeleteRoom = (roomId: string | undefined) => {
-    console.log("Deleting room:", roomId);
-    // Implement API call to delete room
-    setDeleteRoom(null);
-    setRooms((prev) => prev.filter((r) => r.roomId !== roomId));
+  // Edit Room
+  const handleSaveRoom = async (room: Room | null) => {
+    if (!room || !room.roomId) return;
+
+    try {
+      const body = {
+        roomId: room.roomId,
+        name: room.name,
+        type: room.type,
+        pricePerHour: room.pricePerHour,
+        description: room.description,
+        capacity: room.capacity,
+        available: room.available,
+      };
+
+      const res = await fetch("/api/rooms", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        setRooms((prev) =>
+          prev.map((r) => (r.roomId === room.roomId ? { ...r, ...body } : r))
+        );
+        setEditRoom(null); // Close modal
+      } else {
+        console.error("Update failed:", data.error);
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
+
+  // Delete Room
+  const handleDeleteRoom = async (roomId: string | undefined) => {
+    if (!roomId) return;
+    try {
+      const res = await fetch(`/api/rooms?roomId=${roomId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setRooms((prev) => prev.filter((r) => r.roomId !== roomId));
+        setDeleteRoom(null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Custom classes for inputs
+  const inputClass =
+    "border border-gray-300 rounded-md focus:border-blue-500 focus:ring-1 focus:ring-blue-500";
 
   return (
     <TabsContent value="rooms" className="space-y-6">
+      {/* Header & Add Room */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Room Management</h2>
-        <Dialog>
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => setAddDialogOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add Room
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] bg-white rounded-lg shadow-lg">
             <DialogHeader>
               <DialogTitle>Add New Room</DialogTitle>
               <DialogDescription>Create a new karaoke room</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="roomName">Room Name</Label>
-                <Input id="roomName" placeholder="e.g., Standard Room 4" />
+                <Label>Room Name</Label>
+                <Input
+                  className={inputClass}
+                  value={newRoom.name}
+                  onChange={(e) =>
+                    setNewRoom({ ...newRoom, name: e.target.value })
+                  }
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="roomType">Room Type</Label>
-                <Select>
-                  <SelectTrigger>
+                <Label>Room Type</Label>
+                <Select
+                  value={newRoom.type}
+                  onValueChange={(value) =>
+                    setNewRoom({ ...newRoom, type: value })
+                  }
+                >
+                  <SelectTrigger className={inputClass}>
                     <SelectValue placeholder="Select room type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -101,47 +198,72 @@ export default function Rooms() {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="pricePerHour">Price per Hour ($)</Label>
+                <Label>Price per Hour ($)</Label>
                 <Input
-                  id="pricePerHour"
+                  className={inputClass}
                   type="number"
                   step="0.01"
-                  placeholder="0.00"
+                  value={newRoom.pricePerHour}
+                  onChange={(e) =>
+                    setNewRoom({
+                      ...newRoom,
+                      pricePerHour: Number(e.target.value),
+                    })
+                  }
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="capacity">Capacity (people)</Label>
-                <Input id="capacity" type="number" placeholder="e.g., 6" />
+                <Label>Capacity</Label>
+                <Input
+                  className={inputClass}
+                  type="number"
+                  value={newRoom.capacity}
+                  onChange={(e) =>
+                    setNewRoom({ ...newRoom, capacity: Number(e.target.value) })
+                  }
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="roomDescription">Description</Label>
+                <Label>Description</Label>
                 <Textarea
-                  id="roomDescription"
-                  placeholder="Enter room description and features"
+                  className={inputClass}
+                  value={newRoom.description}
+                  onChange={(e) =>
+                    setNewRoom({ ...newRoom, description: e.target.value })
+                  }
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Add Room</Button>
+              <Button
+                type="button"
+                onClick={async () => {
+                  await handleAddRoom();
+                  setAddDialogOpen(false);
+                }}
+              >
+                Add Room
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Rooms Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[70vh] overflow-auto">
         {rooms.map((room) => (
           <Card
             key={room.roomId}
             className={`${
-              !room.available
-                ? "border-red-200 bg-red-50"
-                : "border-green-200 bg-green-50"
+              room.available
+                ? "border-green-200 bg-green-50"
+                : "border-red-200 bg-red-50"
             }`}
           >
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">{room.name}</CardTitle>
+                  <CardTitle>{room.name}</CardTitle>
                   <CardDescription>{room.type} Room</CardDescription>
                 </div>
                 <Badge variant={room.available ? "secondary" : "destructive"}>
@@ -150,174 +272,170 @@ export default function Rooms() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600">{room.description}</p>
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-bold">
-                    ${room.pricePerHour}/hour
-                  </span>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Clock className="h-4 w-4 mr-1" />
-                      Book
-                    </Button>
+              <p className="text-sm text-gray-600">{room.description}</p>
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-lg font-bold">
+                  ${room.pricePerHour}/hour
+                </span>
+                <div className="flex space-x-2">
+                  <Button variant="outline" size="sm">
+                    <Clock className="h-4 w-4 mr-1" />
+                    Book
+                  </Button>
 
-                    {/* Edit Room Dialog */}
-                    <Dialog
-                      open={editRoom?.roomId === room.roomId}
-                      onOpenChange={(open) => !open && setEditRoom(null)}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setEditRoom(room)}
-                        >
-                          Edit
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle>Edit Room</DialogTitle>
-                          <DialogDescription>
-                            Modify room details.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="editRoomName">Room Name</Label>
-                            <Input
-                              id="editRoomName"
-                              defaultValue={editRoom?.name}
-                              onChange={(e) =>
-                                setEditRoom({
-                                  ...editRoom,
-                                  name: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="editRoomType">Room Type</Label>
-                            <Select
-                              defaultValue={editRoom?.type}
-                              onValueChange={(value) =>
-                                setEditRoom({ ...editRoom, type: value })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select room type" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Standard">
-                                  Standard
-                                </SelectItem>
-                                <SelectItem value="VIP">VIP</SelectItem>
-                                <SelectItem value="Family">Family</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="editPricePerHour">
-                              Price per Hour ($)
-                            </Label>
-                            <Input
-                              id="editPricePerHour"
-                              type="number"
-                              step="0.01"
-                              defaultValue={editRoom?.pricePerHour}
-                              onChange={(e) =>
-                                setEditRoom({
-                                  ...editRoom,
-                                  pricePerHour: Number.parseFloat(
-                                    e.target.value
-                                  ),
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="editCapacity">
-                              Capacity (people)
-                            </Label>
-                            <Input
-                              id="editCapacity"
-                              type="number"
-                              defaultValue={editRoom?.capacity}
-                              onChange={(e) =>
-                                setEditRoom({
-                                  ...editRoom,
-                                  capacity: Number.parseInt(e.target.value),
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="editRoomDescription">
-                              Description
-                            </Label>
-                            <Textarea
-                              id="editRoomDescription"
-                              defaultValue={editRoom?.description}
-                              onChange={(e) =>
-                                setEditRoom({
-                                  ...editRoom,
-                                  description: e.target.value,
-                                })
-                              }
-                            />
-                          </div>
+                  {/* Edit Dialog */}
+                  <Dialog
+                    open={editRoom?.roomId === room.roomId}
+                    onOpenChange={(open) => !open && setEditRoom(null)}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditRoom(room)}
+                      >
+                        Edit
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[425px] bg-white rounded-lg shadow-lg">
+                      <DialogHeader>
+                        <DialogTitle>Edit Room</DialogTitle>
+                        <DialogDescription>
+                          Modify room details.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label>Room Name</Label>
+                          <Input
+                            className={inputClass}
+                            value={editRoom?.name || ""}
+                            onChange={(e) =>
+                              setEditRoom(
+                                (prev) =>
+                                  prev && { ...prev, name: e.target.value }
+                              )
+                            }
+                          />
                         </div>
-                        <DialogFooter>
-                          <Button
-                            type="submit"
-                            onClick={() => handleSaveRoom(editRoom)}
+                        <div className="grid gap-2">
+                          <Label>Room Type</Label>
+                          <Select
+                            value={editRoom?.type || ""}
+                            onValueChange={(value) =>
+                              setEditRoom(
+                                (prev) => prev && { ...prev, type: value }
+                              )
+                            }
                           >
-                            Save changes
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+                            <SelectTrigger className={inputClass}>
+                              <SelectValue placeholder="Select room type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Standard">Standard</SelectItem>
+                              <SelectItem value="VIP">VIP</SelectItem>
+                              <SelectItem value="Family">Family</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Price per Hour</Label>
+                          <Input
+                            className={inputClass}
+                            type="number"
+                            step="0.01"
+                            value={editRoom?.pricePerHour || 0}
+                            onChange={(e) =>
+                              setEditRoom(
+                                (prev) =>
+                                  prev && {
+                                    ...prev,
+                                    pricePerHour: Number(e.target.value),
+                                  }
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Capacity</Label>
+                          <Input
+                            className={inputClass}
+                            type="number"
+                            value={editRoom?.capacity || 0}
+                            onChange={(e) =>
+                              setEditRoom(
+                                (prev) =>
+                                  prev && {
+                                    ...prev,
+                                    capacity: Number(e.target.value),
+                                  }
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Description</Label>
+                          <Textarea
+                            className={inputClass}
+                            value={editRoom?.description || ""}
+                            onChange={(e) =>
+                              setEditRoom(
+                                (prev) =>
+                                  prev && {
+                                    ...prev,
+                                    description: e.target.value,
+                                  }
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button
+                          type="button"
+                          onClick={() => handleSaveRoom(editRoom)}
+                        >
+                          Save changes
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
-                    {/* Delete Room Dialog */}
-                    <Dialog
-                      open={deleteRoom?.roomId === room.roomId}
-                      onOpenChange={(open) => !open && setDeleteRoom(null)}
-                    >
-                      <DialogTrigger asChild>
+                  {/* Delete Dialog */}
+                  <Dialog
+                    open={deleteRoom?.roomId === room.roomId}
+                    onOpenChange={(open) => !open && setDeleteRoom(null)}
+                  >
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteRoom(room)}
+                      >
+                        Delete
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-white rounded-lg shadow-lg">
+                      <DialogHeader>
+                        <DialogTitle>Are you absolutely sure?</DialogTitle>
+                        <DialogDescription>{`This will permanently delete "${deleteRoom?.name}".`}</DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
                         <Button
                           variant="outline"
-                          size="sm"
-                          onClick={() => setDeleteRoom(room)}
+                          onClick={() => setDeleteRoom(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={() => handleDeleteRoom(deleteRoom?.roomId)}
                         >
                           Delete
                         </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Are you absolutely sure?</DialogTitle>
-                          <DialogDescription>
-                            This action cannot be undone. This will permanently
-                            delete the room "{deleteRoom?.name}".
-                          </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => setDeleteRoom(null)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            onClick={() => handleDeleteRoom(deleteRoom?.roomId)}
-                          >
-                            Delete
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </div>
             </CardContent>
