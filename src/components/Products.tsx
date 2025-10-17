@@ -26,44 +26,106 @@ import {
 } from "./ui/select";
 import { Plus } from "lucide-react";
 
-export default function Products() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [editProduct, setEditProduct] = useState<any | null>(null);
-  const [deleteProduct, setDeleteProduct] = useState<any | null>(null);
+interface Product {
+  productId: string;
+  name: string;
+  price: number;
+  category: string;
+  description: string;
+}
 
-  // Fetch products
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch("http://localhost:3000/api/all-data"); // Replace with your API endpoint
-        const data = await res.json();
-        console.log("Fetched products:", data);
-        setProducts(data.data.products || []);
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
+export default function Products() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
+  const [deleteProduct, setDeleteProduct] = useState<Product | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    price: 0,
+    category: "",
+    description: "",
+  });
+
+  // Fetch products from /api/products
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch("/api/products");
+      const data = await res.json();
+      if (data.success) {
+        setProducts(data.data || []);
       }
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
     }
+  };
+
+  useEffect(() => {
     fetchProducts();
   }, []);
 
-  const handleSaveProduct = (product: any) => {
-    console.log("Saving product:", product);
-    // Add API call here to save edited product
-    setEditProduct(null);
+  // Add product
+  const handleAddProduct = async () => {
+    try {
+      const res = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newProduct),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) => [...prev, data.data]);
+        setNewProduct({ name: "", price: 0, category: "", description: "" });
+        setAddDialogOpen(false);
+      }
+    } catch (error) {
+      console.error("Failed to add product:", error);
+    }
   };
 
-  const handleDeleteProduct = (productId: string | undefined) => {
-    console.log("Deleting product:", productId);
-    // Add API call here to delete product
-    setDeleteProduct(null);
-    setProducts((prev) => prev.filter((p) => p.productId !== productId));
+  // Save/Edit product
+  const handleSaveProduct = async (product: Product | null) => {
+    if (!product) return;
+    try {
+      const res = await fetch("/api/products", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(product),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) =>
+          prev.map((p) => (p.productId === product.productId ? product : p))
+        );
+        setEditProduct(null);
+      }
+    } catch (error) {
+      console.error("Failed to update product:", error);
+    }
+  };
+
+  // Delete product
+  const handleDeleteProduct = async (productId: string | undefined) => {
+    if (!productId) return;
+    try {
+      const res = await fetch(`/api/products?productId=${productId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts((prev) => prev.filter((p) => p.productId !== productId));
+        setDeleteProduct(null);
+      }
+    } catch (error) {
+      console.error("Failed to delete product:", error);
+    }
   };
 
   return (
     <TabsContent value="products" className="space-y-6">
+      {/* Header + Add Product */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Product Management</h2>
-        <Dialog>
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -80,7 +142,14 @@ export default function Products() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="productName">Product Name</Label>
-                <Input id="productName" placeholder="Enter product name" />
+                <Input
+                  id="productName"
+                  value={newProduct.name}
+                  onChange={(e) =>
+                    setNewProduct((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  placeholder="Enter product name"
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="price">Price ($)</Label>
@@ -88,19 +157,31 @@ export default function Products() {
                   id="price"
                   type="number"
                   step="0.01"
+                  value={newProduct.price}
+                  onChange={(e) =>
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      price: Number(e.target.value),
+                    }))
+                  }
                   placeholder="0.00"
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="category">Category</Label>
-                <Select>
+                <Select
+                  value={newProduct.category}
+                  onValueChange={(value) =>
+                    setNewProduct((prev) => ({ ...prev, category: value }))
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="food">Food</SelectItem>
-                    <SelectItem value="drink">Drink</SelectItem>
-                    <SelectItem value="snack">Snack</SelectItem>
+                    <SelectItem value="Food">Food</SelectItem>
+                    <SelectItem value="Drink">Drink</SelectItem>
+                    <SelectItem value="Snack">Snack</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -108,20 +189,30 @@ export default function Products() {
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
+                  value={newProduct.description}
+                  onChange={(e) =>
+                    setNewProduct((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                   placeholder="Enter product description"
                 />
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Add Product</Button>
+              <Button type="button" onClick={handleAddProduct}>
+                Add Product
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Product Table */}
       <Card>
-        <CardContent className="p-0">
-          <table className="w-full text-left border-collapse">
+        <CardContent className="px-6 overflow-x-auto max-h-140">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b">
                 <th className="p-2">Product ID</th>
@@ -174,12 +265,13 @@ export default function Products() {
                               </Label>
                               <Input
                                 id="editProductName"
-                                defaultValue={editProduct?.name}
+                                value={editProduct?.name || ""}
                                 onChange={(e) =>
-                                  setEditProduct({
-                                    ...editProduct,
-                                    name: e.target.value,
-                                  })
+                                  setEditProduct((prev) =>
+                                    prev
+                                      ? { ...prev, name: e.target.value }
+                                      : prev
+                                  )
                                 }
                               />
                             </div>
@@ -189,24 +281,27 @@ export default function Products() {
                                 id="editPrice"
                                 type="number"
                                 step="0.01"
-                                defaultValue={editProduct?.price}
+                                value={editProduct?.price || 0}
                                 onChange={(e) =>
-                                  setEditProduct({
-                                    ...editProduct,
-                                    price: Number.parseFloat(e.target.value),
-                                  })
+                                  setEditProduct((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          price: Number(e.target.value),
+                                        }
+                                      : prev
+                                  )
                                 }
                               />
                             </div>
                             <div className="grid gap-2">
                               <Label htmlFor="editCategory">Category</Label>
                               <Select
-                                defaultValue={editProduct?.category}
+                                value={editProduct?.category || ""}
                                 onValueChange={(value) =>
-                                  setEditProduct({
-                                    ...editProduct,
-                                    category: value,
-                                  })
+                                  setEditProduct((prev) =>
+                                    prev ? { ...prev, category: value } : prev
+                                  )
                                 }
                               >
                                 <SelectTrigger>
@@ -225,19 +320,20 @@ export default function Products() {
                               </Label>
                               <Textarea
                                 id="editDescription"
-                                defaultValue={editProduct?.description}
+                                value={editProduct?.description || ""}
                                 onChange={(e) =>
-                                  setEditProduct({
-                                    ...editProduct,
-                                    description: e.target.value,
-                                  })
+                                  setEditProduct((prev) =>
+                                    prev
+                                      ? { ...prev, description: e.target.value }
+                                      : prev
+                                  )
                                 }
                               />
                             </div>
                           </div>
                           <DialogFooter>
                             <Button
-                              type="submit"
+                              type="button"
                               onClick={() => handleSaveProduct(editProduct)}
                             >
                               Save changes
@@ -264,8 +360,7 @@ export default function Products() {
                           <DialogHeader>
                             <DialogTitle>Are you absolutely sure?</DialogTitle>
                             <DialogDescription>
-                              This action cannot be undone. This will
-                              permanently delete "{deleteProduct?.name}".
+                              {`This action cannot be undone. This will permanently delete "${deleteProduct?.name}".`}
                             </DialogDescription>
                           </DialogHeader>
                           <DialogFooter>
