@@ -23,7 +23,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "./ui/dialog";
-import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import {
   Select,
@@ -33,114 +32,194 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Plus, Search } from "lucide-react";
+import { Customer, Membership } from "@/types/customerType";
 
 export default function Customers() {
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [memberships, setMemberships] = useState<any[]>([]);
-  const [editCustomer, setEditCustomer] = useState<any | null>(null);
-  const [deleteCustomer, setDeleteCustomer] = useState<any | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [editCustomer, setEditCustomer] = useState<Customer | null>(null);
+  const [deleteCustomer, setDeleteCustomer] = useState<Customer | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [newCustomer, setNewCustomer] = useState<Partial<Customer>>({});
+  const [newMembershipId, setNewMembershipId] = useState<string>("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  // Fetch customers and memberships
+  // Fetch customers & memberships
   useEffect(() => {
     async function fetchData() {
-      try {
-        const res = await fetch("http://localhost:3000/api/all-data");
-        const data = await res.json();
-        console.log("Raw data received:", data);
+      const res = await fetch("/api/customers");
+      const data = await res.json();
+      if (data.success) setCustomers(data.data);
 
-        setCustomers(data.data.customers || []);
-        setMemberships(data.data.memberships || []);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      }
+      const membershipRes = await fetch("/api/memberships");
+      const membershipsData = await membershipRes.json();
+      if (membershipsData.success) setMemberships(membershipsData.data);
     }
     fetchData();
   }, []);
 
-  const handleSaveCustomer = (customer: any) => {
-    console.log("Saving customer:", customer);
-    // Implement API call to save edited customer
-    setEditCustomer(null);
+  // Add customer
+  const handleAddCustomer = async () => {
+    const res = await fetch("/api/customers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...newCustomer, membershipId: newMembershipId }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      setCustomers((prev) => [...prev, data.data]);
+      setNewCustomer({});
+      setNewMembershipId("");
+    }
   };
 
-  const handleDeleteCustomer = (customerId: string | undefined) => {
-    console.log("Deleting customer:", customerId);
-    // Implement API call to delete customer
-    setDeleteCustomer(null);
-    setCustomers((prev) => prev.filter((c) => c.customerId !== customerId));
+  // Update customer
+  const handleUpdateCustomer = async (customer: Customer) => {
+    setIsUpdating(true);
+    try {
+      const { _id, ...updateData } = customer;
+      const res = await fetch(`/api/customers/${customer.customerId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      const data = await res.json();
+      console.log("PUT response:", data, "Status:", res.status);
+
+      if (data.success) {
+        setCustomers((prev) =>
+          prev.map((c) =>
+            c.customerId === customer.customerId ? data.data : c
+          )
+        );
+        setEditCustomer(null);
+      } else {
+        console.error("Update failed:", data.message);
+        setErrorMessage(data.message); // Assuming you added errorMessage state
+      }
+    } catch (err) {
+      console.error("Update failed:", err);
+      setErrorMessage("An error occurred while updating the customer.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Delete customer
+  const handleDeleteCustomer = async (customerId: string) => {
+    const res = await fetch(`/api/customers/${customerId}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    if (data.success) {
+      setCustomers((prev) => prev.filter((c) => c.customerId !== customerId));
+      setDeleteCustomer(null);
+    }
   };
 
   return (
     <TabsContent value="customers" className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Customers</h2>
+
+        {/* Add Customer Modal */}
         <Dialog>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Customer
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Add Customer
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+
+          <DialogContent className="sm:max-w-[450px] max-h-[80vh] overflow-y-auto rounded-2xl backdrop-blur-md bg-white/80 shadow-lg p-6">
             <DialogHeader>
-              <DialogTitle>Add New Customer</DialogTitle>
-              <DialogDescription>
-                Create a new customer profile
+              <DialogTitle className="text-xl font-semibold text-gray-800">
+                Add New Customer
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
+                Fill in the information below to create a new customer.
               </DialogDescription>
             </DialogHeader>
+
             <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="Enter customer name" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter email address"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" placeholder="Enter phone number" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="address">Address</Label>
-                <Textarea id="address" placeholder="Enter address" />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="membership">Membership Type</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select membership" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {memberships.map((m) => (
-                      <SelectItem key={m.membershipId} value={m.membershipId}>
-                        {m.type}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <Input
+                placeholder="Full Name"
+                value={newCustomer.name || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, name: e.target.value })
+                }
+                className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+              />
+              <Input
+                placeholder="Email"
+                type="email"
+                value={newCustomer.email || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, email: e.target.value })
+                }
+                className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+              />
+              <Input
+                placeholder="Phone"
+                value={newCustomer.phone || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, phone: e.target.value })
+                }
+                className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+              />
+              <Textarea
+                placeholder="Address"
+                value={newCustomer.address || ""}
+                onChange={(e) =>
+                  setNewCustomer({ ...newCustomer, address: e.target.value })
+                }
+                className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+              />
+              <Select
+                value={newMembershipId}
+                onValueChange={setNewMembershipId}
+              >
+                <SelectTrigger className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400">
+                  <SelectValue placeholder="Select membership" />
+                </SelectTrigger>
+                <SelectContent>
+                  {memberships.map((m) => (
+                    <SelectItem key={m.membershipId} value={m.membershipId}>
+                      {m.type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
             <DialogFooter>
-              <Button type="submit">Add Customer</Button>
+              <Button className="rounded-xl" onClick={handleAddCustomer}>
+                Add Customer
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Search */}
       <Card>
         <CardHeader>
           <div className="flex space-x-2">
-            <Input placeholder="Search customers..." className="max-w-sm" />
+            <Input
+              placeholder="Search customers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="max-w-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+            />
             <Button variant="outline">
               <Search className="h-4 w-4" />
             </Button>
           </div>
         </CardHeader>
+
+        {/* Customers Table */}
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -155,194 +234,209 @@ export default function Customers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.map((customer) => {
-                const membership = memberships.find(
-                  (m) => m.membershipId === customer.membershipId
-                );
-                return (
-                  <TableRow key={customer.customerId}>
-                    <TableCell className="font-medium">
-                      {customer.customerId}
-                    </TableCell>
-                    <TableCell>{customer.name}</TableCell>
-                    <TableCell>{customer.email}</TableCell>
-                    <TableCell>{customer.phone}</TableCell>
-                    <TableCell>{customer.address}</TableCell>
-                    <TableCell>
-                      {membership && (
-                        <Badge variant="secondary">{membership.type}</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        {/* Edit Dialog */}
-                        <Dialog
-                          open={
-                            editCustomer?.customerId === customer.customerId
-                          }
-                          onOpenChange={(open) =>
-                            !open && setEditCustomer(null)
-                          }
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditCustomer(customer)}
-                            >
-                              Edit
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                              <DialogTitle>Edit Customer</DialogTitle>
-                              <DialogDescription>
-                                Make changes to customer profile.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                              <div className="grid gap-2">
-                                <Label htmlFor="editName">Full Name</Label>
+              {customers
+                .filter((c) =>
+                  c.name.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map((customer) => {
+                  const membership = memberships.find(
+                    (m) => m.membershipId === customer.membershipId
+                  );
+                  return (
+                    <TableRow key={customer.customerId}>
+                      <TableCell>{customer.customerId}</TableCell>
+                      <TableCell>{customer.name}</TableCell>
+                      <TableCell>{customer.email}</TableCell>
+                      <TableCell>{customer.phone}</TableCell>
+                      <TableCell>{customer.address}</TableCell>
+                      <TableCell>
+                        {membership && <Badge>{membership.type}</Badge>}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          {/* Edit Modal */}
+                          <Dialog
+                            open={
+                              editCustomer?.customerId === customer.customerId
+                            }
+                            onOpenChange={(open) =>
+                              !open && setEditCustomer(null)
+                            }
+                          >
+                            <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => setEditCustomer(customer)}
+                              >
+                                Edit
+                              </Button>
+                            </DialogTrigger>
+
+                            <DialogContent className="sm:max-w-[450px] max-h-[80vh] overflow-y-auto rounded-2xl backdrop-blur-md bg-white/80 shadow-lg p-6">
+                              <DialogHeader>
+                                <DialogTitle className="text-xl font-semibold text-gray-800">
+                                  Edit Customer
+                                </DialogTitle>
+                                <DialogDescription className="text-sm text-gray-500">
+                                  Make changes to this customer’s information.
+                                </DialogDescription>
+                              </DialogHeader>
+
+                              <div className="grid gap-4 py-4">
                                 <Input
-                                  id="editName"
-                                  defaultValue={editCustomer?.name}
+                                  placeholder="Full Name"
+                                  className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+                                  value={editCustomer?.name || ""}
                                   onChange={(e) =>
                                     setEditCustomer({
-                                      ...editCustomer,
+                                      ...editCustomer!,
                                       name: e.target.value,
                                     })
                                   }
                                 />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="editEmail">Email</Label>
                                 <Input
-                                  id="editEmail"
+                                  placeholder="Email"
                                   type="email"
-                                  defaultValue={editCustomer?.email}
+                                  className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+                                  value={editCustomer?.email || ""}
                                   onChange={(e) =>
                                     setEditCustomer({
-                                      ...editCustomer,
+                                      ...editCustomer!,
                                       email: e.target.value,
                                     })
                                   }
                                 />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="editPhone">Phone</Label>
                                 <Input
-                                  id="editPhone"
-                                  defaultValue={editCustomer?.phone}
+                                  placeholder="Phone"
+                                  className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+                                  value={editCustomer?.phone || ""}
                                   onChange={(e) =>
                                     setEditCustomer({
-                                      ...editCustomer,
+                                      ...editCustomer!,
                                       phone: e.target.value,
                                     })
                                   }
                                 />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="editAddress">Address</Label>
                                 <Textarea
-                                  id="editAddress"
-                                  defaultValue={editCustomer?.address}
+                                  placeholder="Address"
+                                  className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400"
+                                  value={editCustomer?.address || ""}
                                   onChange={(e) =>
                                     setEditCustomer({
-                                      ...editCustomer,
+                                      ...editCustomer!,
                                       address: e.target.value,
                                     })
                                   }
                                 />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="editMembership">
-                                  Membership Type
-                                </Label>
                                 <Select
-                                  defaultValue={membership?.type}
+                                  value={editCustomer?.membershipId || ""}
                                   onValueChange={(value) =>
                                     setEditCustomer({
-                                      ...editCustomer,
+                                      ...editCustomer!,
                                       membershipId: value,
                                     })
                                   }
                                 >
-                                  {memberships.map((m) => (
-                                    <SelectItem
-                                      key={m.membershipId}
-                                      value={m.membershipId}
-                                    >
-                                      {m.type}
-                                    </SelectItem>
-                                  ))}
+                                  <SelectTrigger className="rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-400">
+                                    <SelectValue placeholder="Select membership" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {memberships.map((m) => (
+                                      <SelectItem
+                                        key={m.membershipId}
+                                        value={m.membershipId}
+                                      >
+                                        {m.type}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
                                 </Select>
                               </div>
-                            </div>
-                            <DialogFooter>
-                              <Button
-                                type="submit"
-                                onClick={() => handleSaveCustomer(editCustomer)}
-                              >
-                                Save changes
-                              </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
 
-                        {/* Delete Dialog */}
-                        <Dialog
-                          open={
-                            deleteCustomer?.customerId === customer.customerId
-                          }
-                          onOpenChange={(open) =>
-                            !open && setDeleteCustomer(null)
-                          }
-                        >
-                          <DialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setDeleteCustomer(customer)}
-                            >
-                              Delete
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>
-                                Are you absolutely sure?
-                              </DialogTitle>
-                              <DialogDescription>
-                                This action cannot be undone. This will
-                                permanently delete the customer "
-                                {deleteCustomer?.name}".
-                              </DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter>
-                              <Button
-                                variant="outline"
-                                onClick={() => setDeleteCustomer(null)}
-                              >
-                                Cancel
-                              </Button>
+                              <DialogFooter>
+                                {errorMessage && (
+                                  <p className="text-red-500 text-sm mt-2">
+                                    {errorMessage}
+                                  </p>
+                                )}
+                                <Button
+                                  className="rounded-xl"
+                                  onClick={() =>
+                                    editCustomer &&
+                                    handleUpdateCustomer(editCustomer)
+                                  }
+                                  disabled={isUpdating}
+                                >
+                                  {isUpdating ? "Saving..." : "Save Changes"}
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+
+                          {/* Delete Modal */}
+                          <Dialog
+                            open={
+                              deleteCustomer?.customerId === customer.customerId
+                            }
+                            onOpenChange={(open) =>
+                              !open && setDeleteCustomer(null)
+                            }
+                          >
+                            <DialogTrigger asChild>
                               <Button
                                 variant="destructive"
-                                onClick={() =>
-                                  handleDeleteCustomer(
-                                    deleteCustomer?.customerId
-                                  )
-                                }
+                                size="sm"
+                                className="rounded-xl"
+                                onClick={() => setDeleteCustomer(customer)}
                               >
                                 Delete
                               </Button>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                            </DialogTrigger>
+
+                            <DialogContent className="sm:max-w-[400px] rounded-2xl backdrop-blur-md bg-white/80 shadow-lg p-6">
+                              <DialogHeader>
+                                <DialogTitle className="text-lg font-semibold">
+                                  Confirm Delete
+                                </DialogTitle>
+                                <DialogDescription className="text-gray-600">
+                                  Are you sure you want to delete{" "}
+                                  <span className="font-medium text-red-500">
+                                    {deleteCustomer?.name}
+                                  </span>
+                                  ? This action cannot be undone.
+                                </DialogDescription>
+                              </DialogHeader>
+
+                              <DialogFooter className="flex justify-end gap-2">
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setDeleteCustomer(null)}
+                                  className="rounded-xl"
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  className="rounded-xl"
+                                  onClick={() =>
+                                    deleteCustomer &&
+                                    handleDeleteCustomer(
+                                      deleteCustomer.customerId
+                                    )
+                                  }
+                                >
+                                  Delete
+                                </Button>
+                              </DialogFooter>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
             </TableBody>
           </Table>
         </CardContent>
