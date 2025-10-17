@@ -22,6 +22,15 @@ import Products from "@/components/Products";
 export default function Main() {
   const [activeTab, setActiveTab] = useState("dashboard");
 
+  const tabs = [
+    { value: "dashboard", label: "Dashboard", icon: Home },
+    { value: "bookings", label: "Bookings", icon: CalendarIcon },
+    { value: "orders", label: "Orders", icon: ShoppingCart },
+    { value: "customers", label: "Customers", icon: Users },
+    { value: "rooms", label: "Rooms", icon: Mic },
+    { value: "products", label: "Products", icon: Star },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -55,30 +64,19 @@ export default function Main() {
           className="space-y-6"
         >
           <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-              <Home className="h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="bookings" className="flex items-center gap-2">
-              <CalendarIcon className="h-4 w-4" />
-              Bookings
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              Orders
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Customers
-            </TabsTrigger>
-            <TabsTrigger value="rooms" className="flex items-center gap-2">
-              <Mic className="h-4 w-4" />
-              Rooms
-            </TabsTrigger>
-            <TabsTrigger value="products" className="flex items-center gap-2">
-              <Star className="h-4 w-4" />
-              Products
-            </TabsTrigger>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="flex items-center gap-2"
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
 
           {/* Dashboard */}

@@ -74,6 +74,22 @@ export default function Booking() {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const tableHeader = [
+    "Booking ID",
+    "Customer",
+    "Room",
+    "Date & Time",
+    "Duration",
+    "Status",
+    "Actions",
+  ];
+  const statusOptions = [
+    { value: "Pending", label: "Pending" },
+    { value: "Confirmed", label: "Confirmed" },
+    { value: "Active", label: "Active" },
+    { value: "Completed", label: "Completed" },
+    { value: "Cancelled", label: "Cancelled" },
+  ];
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -433,11 +449,11 @@ export default function Booking() {
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Pending">Pending</SelectItem>
-                      <SelectItem value="Confirmed">Confirmed</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Completed">Completed</SelectItem>
-                      <SelectItem value="Cancelled">Cancelled</SelectItem>
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -475,32 +491,14 @@ export default function Booking() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="mt-6 overflow-x-auto">
-          <CardContent className="p-0">
-            <Table className="min-w-full divide-y divide-gray-200">
+        <Card className="mt-6 overflow-x-auto h-140 overflow-y-auto ">
+          <CardContent className="px-6">
+            <Table className="min-w-full divide-y divide-gray-200 overflow-y-auto h-120">
               <TableHeader className="bg-gray-50">
                 <TableRow>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Booking ID
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Customer
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Room
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Date & Time
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Duration
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Status
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-gray-700">
-                    Actions
-                  </TableHead>
+                  {tableHeader.map((header) => (
+                    <TableHead key={header}>{header}</TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody className="bg-white divide-y divide-gray-200">

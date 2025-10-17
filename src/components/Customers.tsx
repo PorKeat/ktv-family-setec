@@ -44,6 +44,15 @@ export default function Customers() {
   const [newMembershipId, setNewMembershipId] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const tableHeader = [
+    "Customer ID",
+    "Name",
+    "Email",
+    "Phone",
+    "Address",
+    "Membership",
+    "Actions",
+  ];
 
   // Fetch customers & memberships
   useEffect(() => {
@@ -220,17 +229,13 @@ export default function Customers() {
         </CardHeader>
 
         {/* Customers Table */}
-        <CardContent className="p-0">
+        <CardContent className="px-6 overflow-y-auto h-130">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Customer ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Membership</TableHead>
-                <TableHead>Actions</TableHead>
+                {tableHeader.map((header) => (
+                  <TableHead key={header}>{header}</TableHead>
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>

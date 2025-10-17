@@ -6,14 +6,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, CreditCard, ShoppingCart, Users } from "lucide-react";
 import { format } from "date-fns";
-import {
-  Booking,
-  Room,
-  DashboardSummary,
-  DashboardToday,
-  DashboardData,
-} from "@/types/dashboardType";
-
+import { Booking, DashboardData } from "@/types/dashboardType";
 
 // ===== Status Badge Helper =====
 const getStatusBadge = (status: Booking["status"]) => {
@@ -46,81 +39,66 @@ export default function Dashboard() {
   }, []);
 
   if (loading) return <p>Loading...</p>;
-
-  const { summary, today, recentBookings, rooms } = dashboard!;
+  const { summary, recentBookings, rooms } = dashboard!;
+  const summaryCards = [
+    {
+      title: "Total Customers",
+      value: summary.totalCustomers,
+      description: "All registered customers",
+      icon: Users,
+    },
+    {
+      title: "Total Rooms",
+      value: summary.totalRooms,
+      description: "All available rooms",
+      icon: CreditCard,
+    },
+    {
+      title: "Available Rooms",
+      value: summary.availableRooms,
+      description: "Rooms ready for booking",
+      icon: CalendarIcon,
+    },
+    {
+      title: "Occupancy Rate",
+      value: `${summary.occupancyRate}%`,
+      description: "Percentage of rooms occupied",
+      icon: ShoppingCart,
+    },
+  ];
 
   return (
     <TabsContent value="dashboard" className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Customers */}
-        <Card>
-          <CardHeader className="flex justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Customers
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalCustomers}</div>
-            <p className="text-xs text-muted-foreground">
-              All registered customers
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total Rooms */}
-        <Card>
-          <CardHeader className="flex justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Rooms</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.totalRooms}</div>
-            <p className="text-xs text-muted-foreground">All available rooms</p>
-          </CardContent>
-        </Card>
-
-        {/* Available Rooms */}
-        <Card>
-          <CardHeader className="flex justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Available Rooms
-            </CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.availableRooms}</div>
-            <p className="text-xs text-muted-foreground">
-              Rooms ready for booking
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Occupancy Rate */}
-        <Card>
-          <CardHeader className="flex justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Occupancy Rate
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{summary.occupancyRate}%</div>
-            <p className="text-xs text-muted-foreground">
-              Percentage of rooms occupied
-            </p>
-          </CardContent>
-        </Card>
+        {summaryCards.map((card, index) => {
+          const Icon = card.icon;
+          return (
+            <Card key={index}>
+              <CardHeader className="flex justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {card.title}
+                </CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{card.value}</div>
+                <p className="text-xs text-muted-foreground">
+                  {card.description}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Recent Bookings */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+        <Card className="h-120">
           <CardHeader>
             <CardTitle>Recent Bookings</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 h-100 overflow-y-auto">
             {recentBookings.length === 0 && <p>No recent bookings</p>}
             {recentBookings.map((booking) => (
               <div
@@ -142,11 +120,11 @@ export default function Dashboard() {
         </Card>
 
         {/* Room Status */}
-        <Card>
+        <Card className="h-120">
           <CardHeader>
             <CardTitle>Room Status</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 h-100 overflow-y-auto">
             {rooms.map((room) => (
               <div
                 key={room.roomId}
